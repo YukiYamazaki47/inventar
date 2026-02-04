@@ -1,9 +1,11 @@
 #!/bin/bash
 set -e
 
-echo "Pulling git repository with submodules..."
-git pull --recurse-submodules
-git submodule update --init --recursive
+echo "Cloning repository..."
+REPO_DIR="${HOME}/inventar"
+rm -rf "$REPO_DIR"
+git clone --recurse-submodules https://github.com/YukiYamazaki47/inventar.git "$REPO_DIR"
+cd "$REPO_DIR"
 
 echo "Starting Docker containers..."
 docker-compose up -d
