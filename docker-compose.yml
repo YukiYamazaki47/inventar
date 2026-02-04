@@ -14,6 +14,8 @@ services:
     ports:
       - "8000:8000"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       mysql:
         condition: service_healthy
       redis:
@@ -23,6 +25,20 @@ services:
       - external
     restart: unless-stopped
     init: true
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: mysql+aiomysql://${MYSQL_USER:-inventar}:${MYSQL_PASSWORD:-inventar}@mysql:3306/${MYSQL_DATABASE:-inventar}?charset=utf8mb4
+    command: alembic upgrade head
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
 
   mysql:
     image: mysql:8.4
