@@ -1,3 +1,6 @@
 [submodule "backend"]
 	path = backend
 	url = https://github.com/YukiYamazaki47/inventar-backend.git
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/YukiYamazaki47/inventar-frontend.git
