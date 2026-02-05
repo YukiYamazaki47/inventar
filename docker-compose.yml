@@ -8,6 +8,24 @@ services:
       - "80:80"
     networks:
       - external
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      CADDY_DOMAIN: ${CADDY_DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+    depends_on:
+      - backend
+    networks:
+      - external
+      - internal
+    restart: unless-stopped
 
   backend:
     build:
@@ -33,10 +51,8 @@ services:
         condition: service_healthy
     networks:
       - internal
-      - external
     restart: unless-stopped
     init: true
-
 
   migrate:
     build:
@@ -86,6 +102,8 @@ services:
 volumes:
   mysql_data:
   redis_data:
+  caddy_data:
+  caddy_config:
 
 networks:
   internal:
@@ -93,4 +111,3 @@ networks:
     internal: true
   external:
     driver: bridge
-    name: ${EXTERNAL_NETWORK_NAME:-reselseinventar_external}
