@@ -1,0 +1,209 @@
+diff --git a/alembic/versions/b8c3f2d1e4a0_add_init_admin_user.py b/alembic/versions/b8c3f2d1e4a0_add_init_admin_user.py
+new file mode 100644
+index 0000000..b1f1bf8
+--- /dev/null
++++ b/alembic/versions/b8c3f2d1e4a0_add_init_admin_user.py
+@@ -0,0 +1,126 @@
++"""add init admin user
++
++Revision ID: b8c3f2d1e4a0
++Revises: 0f3e4d1c9b2a
++Create Date: 2026-02-06 12:00:00.000000
++
++"""
++from typing import Sequence, Union
++import hashlib
++import secrets
++from datetime import datetime
++
++from alembic import op
++import sqlalchemy as sa
++
++
++# revision identifiers, used by Alembic.
++revision: str = 'b8c3f2d1e4a0'
++down_revision: Union[str, Sequence[str], None] = '0f3e4d1c9b2a'
++branch_labels: Union[str, Sequence[str], None] = None
++depends_on: Union[str, Sequence[str], None] = None
++
++_SALT_BYTES = 16
++_HASH_ITERS = 120_000
++_ROLE_NAMES = [
++    "ADMIN",
++    "INVENTORY_MANAGER",
++    "RESPONSIBLE",
++    "TEACHER_VIEW",
++]
++
++
++def _hash_password(password: str) -> tuple[bytes, bytes]:
++    """Hash a password using PBKDF2-SHA256."""
++    salt = secrets.token_bytes(_SALT_BYTES)
++    digest = hashlib.pbkdf2_hmac(
++        "sha256",
++        password.encode("utf-8"),
++        salt,
++        _HASH_ITERS,
++    )
++    return salt, digest
++
++
++def upgrade() -> None:
++    """Upgrade schema."""
++    # Get connection for raw SQL operations
++    connection = op.get_bind()
++    
++    # Create roles if they don't exist
++    for role_name in _ROLE_NAMES:
++        # Check if role exists
++        check_role = sa.text("""
++            SELECT id FROM roles WHERE name = :name
++        """)
++        result = connection.execute(check_role, {"name": role_name})
++        role_exists = result.scalar()
++        
++        if not role_exists:
++            role_insert = sa.text("""
++                INSERT INTO roles (name) VALUES (:name)
++            """)
++            connection.execute(role_insert, {"name": role_name})
++    
++    connection.commit()
++    
++    # Check if admin user already exists
++    check_user = sa.text("""
++        SELECT id FROM users WHERE email = :email
++    """)
++    result = connection.execute(check_user, {"email": "admin@schule.saarland"})
++    existing_user = result.fetchone()
++    
++    if not existing_user:
++        # Create admin user
++        salt, digest = _hash_password("admin")
++        
++        user_insert = sa.text("""
++            INSERT INTO users (display_name, email, active, created_at, passwort, salt)
++            VALUES (:display_name, :email, :active, :created_at, :passwort, :salt)
++        """)
++        connection.execute(user_insert, {
++            "display_name": "Admin",
++            "email": "admin@schule.saarland",
++            "active": True,
++            "created_at": datetime.utcnow(),
++            "passwort": digest,
++            "salt": salt,
++        })
++        connection.commit()
++        
++        # Get the user id
++        result = connection.execute(check_user, {"email": "admin@schule.saarland"})
++        user_result = result.fetchone()
++        user_id = user_result[0] if user_result else None
++        
++        if user_id:
++            # Get ADMIN role id
++            role_select = sa.text("""
++                SELECT id FROM roles WHERE name = :name
++            """)
++            result = connection.execute(role_select, {"name": "ADMIN"})
++            admin_role_id = result.scalar()
++            
++            # Assign ADMIN role to user
++            user_role_insert = sa.text("""
++                INSERT INTO user_roles (user_id, role_id)
++                VALUES (:user_id, :role_id)
++            """)
++            connection.execute(user_role_insert, {
++                "user_id": user_id,
++                "role_id": admin_role_id,
++            })
++            connection.commit()
++
++
++def downgrade() -> None:
++    """Downgrade schema."""
++    connection = op.get_bind()
++    
++    # Remove admin user
++    user_delete = sa.text("""
++        DELETE FROM users WHERE email = :email
++    """)
++    connection.execute(user_delete, {"email": "admin@schule.saarland"})
++    connection.commit()
+diff --git a/app/app.py b/app/app.py
+index 3d6d6e0..b01c6a7 100644
+--- a/app/app.py
++++ b/app/app.py
+@@ -1,6 +1,6 @@
+ from contextlib import asynccontextmanager
+ 
+-from fastapi import Depends, FastAPI
++from fastapi import Depends, FastAPI,APIRouter
+ from fastapi.middleware.cors import CORSMiddleware
+ 
+ from .abteilung.router import router as department_router
+@@ -9,7 +9,7 @@ from .dependencies import close_redis, has_role
+ from .fach.router import router as subject_router
+ from .gruppe.router import router as group_router
+ from .inventar.router import router as items_router
+-from .ort.router import router as place_router
++from .ort.router import router as place_router  
+ from .user.router import me_router, router as userrouter
+ from .zustand.router import router as status_router
+ 
+@@ -24,7 +24,9 @@ app = FastAPI(debug=True, lifespan=lifespan)
+ 
+ app.add_middleware(
+     CORSMiddleware,
+-    allow_origins=["*"],
++    allow_origins=[
++        "*"
++    ],
+     allow_credentials=True,
+     allow_methods=["*"],
+     allow_headers=["*"],
+@@ -36,12 +38,17 @@ def test(role=Depends(has_role("ADMIN"))):
+     return "Test Done"
+ 
+ 
+-app.include_router(userrouter)
+-app.include_router(me_router)
+-app.include_router(authrouter)
+-app.include_router(department_router)
+-app.include_router(group_router)
+-app.include_router(subject_router)
+-app.include_router(place_router)
+-app.include_router(status_router)
+-app.include_router(items_router)
++pfr=APIRouter(
++    # prefix="/api"
++)
++pfr.include_router(userrouter)
++pfr.include_router(me_router)
++pfr.include_router(authrouter)
++pfr.include_router(department_router)
++pfr.include_router(group_router)
++pfr.include_router(subject_router)
++pfr.include_router(place_router)
++pfr.include_router(status_router)
++pfr.include_router(items_router)
++
++app.include_router(pfr)
+\ No newline at end of file
+diff --git a/app/user/router.py b/app/user/router.py
+index 366e940..01c7625 100644
+--- a/app/user/router.py
++++ b/app/user/router.py
+@@ -61,7 +61,8 @@ async def router_get_user(
+ 
+ 
+ @router.post("", response_model=PublicUser, status_code=status.HTTP_201_CREATED,
+-             dependencies=[Depends(has_role("ADMIN"))])
++            #  dependencies=[Depends(has_role("ADMIN"))]
++             )
+ async def router_create_user(
+     userdata: CreateUser,
+     session: AsyncSession = Depends(get_async_session),
+diff --git a/inventar.db b/inventar.db
+deleted file mode 100644
+index e69de29..0000000

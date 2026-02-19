@@ -1,0 +1,57 @@
+diff --git a/.env b/.env
+index 5869741..bdd0339 100644
+--- a/.env
++++ b/.env
+@@ -1,2 +1,2 @@
+ # Base URL for the API server (no trailing slash)
+-VITE_API_BASE_URL=http://localhost:8000
++VITE_API_BASE_URL=https://supreme-winner-97754jq7g549h945x-8000.app.github.dev/
+diff --git a/nginx.conf b/nginx.conf
+index 53c9edd..1a556c2 100644
+--- a/nginx.conf
++++ b/nginx.conf
+@@ -16,4 +16,7 @@ server {
+     expires 30d;
+     add_header Cache-Control "public, max-age=2592000, immutable";
+   }
++
++  
++
+ }
+diff --git a/src/lib/api.ts b/src/lib/api.ts
+index 93bae63..7fae03b 100644
+--- a/src/lib/api.ts
++++ b/src/lib/api.ts
+@@ -1,7 +1,7 @@
+ ﻿import { toast } from "@/components/ui/use-toast"
+ 
+-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(/\/+$/, "")
+-
++const API_BASE_URL = ("https://supreme-winner-97754jq7g549h945x-80.app.github.dev/api").replace(/\/+$/, "")
++console.log(API_BASE_URL);
+ const ACCESS_TOKEN_KEY = "access_token"
+ const REFRESH_TOKEN_KEY = "refresh_token"
+ 
+@@ -149,6 +149,7 @@ export async function apiFetch<T>(
+   path: string,
+   options: ApiFetchOptions = {}
+ ): Promise<T> {
++  console.log(path);
+   const tokens = getStoredTokens()
+   const { responseType = "json", skipAuth, retry = true, ...init } = options
+ 
+diff --git a/src/pages/MasterDataAdminPage.tsx b/src/pages/MasterDataAdminPage.tsx
+index cfbc8e7..d6dcd7f 100644
+--- a/src/pages/MasterDataAdminPage.tsx
++++ b/src/pages/MasterDataAdminPage.tsx
+@@ -53,8 +53,8 @@ const TABS = [
+     key: "statuses",
+     label: "Statuses",
+     endpoint: "/item-status",
+-    allowCreate: false,
+-    allowDelete: false,
++    allowCreate: true,
++    allowDelete: true,
+   },
+ ]
+ 
