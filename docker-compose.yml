@@ -1,4 +1,19 @@
 services:
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - internal2
+      - external
 
   frontend:
     build:
@@ -7,7 +22,7 @@ services:
     ports:
       - "80:80"
     networks:
-      - external
+      - internal2
 
   backend:
     build:
@@ -33,7 +48,7 @@ services:
         condition: service_healthy
     networks:
       - internal
-      - external
+      - internal2
     restart: unless-stopped
     init: true
 
@@ -86,11 +101,18 @@ services:
 volumes:
   mysql_data:
   redis_data:
+  caddy_data:
+  caddy_config:
 
 networks:
   internal:
     driver: bridge
     internal: true
+    
+  internal2:
+    driver: bridge
+    internal: true
+
   external:
     driver: bridge
     name: ${EXTERNAL_NETWORK_NAME:-reselseinventar_external}
