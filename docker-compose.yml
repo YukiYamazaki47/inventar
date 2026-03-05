@@ -9,8 +9,10 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - frontend
-      - backend
+      - frontend #:
+        #condition: service_healthy
+      - backend #:
+        #condition: service_healthy
     networks:
       - internal2
       - external
