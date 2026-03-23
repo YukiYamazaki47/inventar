@@ -1,4 +1,31 @@
 services:
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend #:
+        #condition: service_healthy
+      - backend #:
+        #condition: service_healthy
+    networks:
+      - internal2
+      - external
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    networks:
+      - internal2
+
   backend:
     build:
       context: ./backend
@@ -11,6 +38,7 @@ services:
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       SESSION_KEY_PREFIX: ${SESSION_KEY_PREFIX:-session:}
       SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-3600}
+      
     ports:
       - "8000:8000"
     depends_on:
@@ -22,9 +50,11 @@ services:
         condition: service_healthy
     networks:
       - internal
-      - external
+      - internal2
     restart: unless-stopped
     init: true
+
+
   migrate:
     build:
       context: ./backend
@@ -73,11 +103,18 @@ services:
 volumes:
   mysql_data:
   redis_data:
+  caddy_data:
+  caddy_config:
 
 networks:
   internal:
     driver: bridge
     internal: true
+    
+  internal2:
+    driver: bridge
+    internal: true
+
   external:
     driver: bridge
     name: ${EXTERNAL_NETWORK_NAME:-reselseinventar_external}
